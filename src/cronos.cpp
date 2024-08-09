@@ -18,9 +18,13 @@ GitHub: https://github.com/vortigont/pzem-edl
 static constexpr const char* tag = "CronoS";
 
 CronoS_Task::CronoS_Task(const char* expression){
+  setExpr(expression);
+}
+
+void CronoS_Task::setExpr(const char* expr){
   const char* err;
-  cron_parse_expr(expression, &rule, &err);
-  valid = err == NULL;
+  cron_parse_expr(expr, &rule, &err);
+  valid = (err == NULL);
 /*
   if (!valid){
     ESP_LOGW(tag, "Task expr invalid: %s\n", err);
@@ -28,9 +32,10 @@ CronoS_Task::CronoS_Task(const char* expression){
 */
 }
 
-cronos_tid CronoS::addCallback(const char* expression, CronoS_Callback_t cb, uint32_t param, void* arg){
+
+cronos_tid CronoS::addCallback(const char* expression, CronoS_Callback_t cb, void* arg){
   std::lock_guard<std::mutex> lock(_mtx);
-  _tasks.emplace_back(std::make_unique<CronoS_Callback>(expression, cb, param, arg));
+  _tasks.emplace_back(std::make_unique<CronoS_Callback>(expression, cb, arg));
   cronos_tid id = ++_cnt;
   _tasks.back()->_id = id;
   std::time_t now;
@@ -124,6 +129,26 @@ void CronoS::removeTask(cronos_tid id){
   for (auto i = _tasks.begin(); i != _tasks.end(); ++i){
     if (i->get()->_id == id){
       _tasks.erase(i);
+      return;
+    }
+  }
+}
+
+int CronoS::getCrontab(cronos_tid id, char *buffer, int buffer_len, int expr_len, const char **error) const {
+  //std::lock_guard<std::mutex> lock(_mtx);
+  for (auto i = _tasks.begin(); i != _tasks.end(); ++i){
+    if (i->get()->_id == id){
+      return cron_generate_expr(&((*i)->rule), buffer, buffer_len, expr_len, error);
+    }
+  }
+
+  return -1;
+}
+
+void CronoS::setExpr(cronos_tid id, const char *expr){
+  for (auto &t : _tasks ){
+    if (t->getID() == id){
+      t->setExpr(expr);
       return;
     }
   }

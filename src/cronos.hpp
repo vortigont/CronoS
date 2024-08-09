@@ -36,6 +36,11 @@ public:
   // get task id
   cronos_tid getID() const { return _id; }
 
+  const cron_expr& getExpr() const { return rule; }
+
+  // set/update Task's cron expression
+  void setExpr(const char* expr);
+
   /**
    * @brief a callback method that is triggered by a scheduler
    * 
@@ -46,7 +51,7 @@ public:
 
 using CronoS_Task_pt = std::unique_ptr<CronoS_Task>;
 // type for the CallBack function
-using CronoS_Callback_t = std::function<void(uint32_t param, void* arg)>;
+using CronoS_Callback_t = std::function<void(cronos_tid id, void* arg)>;
 
 /**
  * @brief CronoS task that implements functional callback
@@ -58,21 +63,19 @@ protected:
 
   /**
    * @brief functional callback pointer
-   * @param param arbitrary paramert to pass to the callback
    * @param arg argumen object pointer
    */
   CronoS_Callback_t callback{nullptr};
-  uint32_t _param;
   void* _arg;
 
 public:
-  CronoS_Callback(const char* expression, CronoS_Callback_t f, uint32_t param = 0, void* arg = nullptr) : CronoS_Task(expression), callback(f), _param(param), _arg(arg) {}
+  CronoS_Callback(const char* expression, CronoS_Callback_t f, void* arg = nullptr) : CronoS_Task(expression), callback(f), _arg(arg) {}
 
   /*!
    * @copydoc CronoS_Task::cronos_run()
    * 
    */
-  void cronos_run() override { if (callback) callback(_param, _arg); }
+  void cronos_run() override { if (callback) callback(getID(), _arg); }
 };
 
 
@@ -127,7 +130,7 @@ public:
    * @param cb functional callback to execute
    * @return cronos_tid is a Task ID that identifies the task in the scheduler 
    */
-  cronos_tid addCallback(const char* expression, CronoS_Callback_t cb, uint32_t param = 0, void* arg = nullptr);
+  cronos_tid addCallback(const char* expression, CronoS_Callback_t cb, void* arg = nullptr);
 
   /**
    * @brief remore a Task from a scheuler identifid by id
@@ -136,6 +139,26 @@ public:
    * @param id CronoS task id
    */
   void removeTask(cronos_tid id);
+
+  /**
+   * @brief Get Crontab string for a task
+   * 
+   * @param id task id
+   * @param buffer char buffer to write to (be sure to reserve enough)
+   * @param buffer_len buffer size
+   * @param expr_len number of cron fields produced
+   * @param error output error message, will be set to string literal
+   * @return int used length of the buffer or -1 on error
+   */
+  int getCrontab(cronos_tid id, char *buffer, int buffer_len, int expr_len = 6, const char **error = NULL) const;
+
+  /**
+   * @brief Set/update cron expression for task with id
+   * 
+   * @param id 
+   * @param expr 
+   */
+  void setExpr(cronos_tid id, const char *expr);
 
 };
 
