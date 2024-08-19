@@ -2,7 +2,7 @@
     "name": "CronoS",
     "frameworks": "arduino",
     "platforms": ["espressif32"],
-    "version": "0.0.1",
+    "version": "1.0.0",
     "keywords": "cron, crontab, schedule",
     "description": "A tiny wrapper lib that provides classes to run scheduled tasks/callbacks with a help of a RTOS timers and rules defined via CRONtab expression syntax",
     "url": "https://github.com/vortigont/CronoS",
@@ -20,7 +20,7 @@
         "url": "https://github.com/vortigont/CronoS.git"
     },
     "build": {
-        "flags": "-DCRON_USE_LOCAL_TIME"
+        "flags": "-DCRON_USE_LOCAL_TIME -DCRON_DISABLE_YEARS"
     },
     "export": {
         "include":
