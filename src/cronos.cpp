@@ -14,6 +14,9 @@ GitHub: https://github.com/vortigont/pzem-edl
 //#include "Arduino.h"
 
 #define DEFAULT_RESCHEDULING_TIME   60    // seconds
+#define CRONOS_TASK_MAX_LATE_TIME   3     // seconds, when evaluating tasks, consider this value as max late threshold for task to run
+                                          // if current time differentce with tasks next_run time is larger than that, skip task's run as too late
+                                          // this value is threshold for situations like time skew adjustment or too long scheduler run for some reason
 
 static constexpr const char* tag = "CronoS";
 
@@ -101,7 +104,7 @@ void CronoS::_evaluate(){
       continue;
     }
 
-    if (now == (*i)->next_run || now > (*i)->next_run){
+    if (now == (*i)->next_run || (now > (*i)->next_run && now - (*i)->next_run <= CRONOS_TASK_MAX_LATE_TIME) ){
       (*i)->cronos_run();
       (*i)->next_run = cron_next(&(*i)->rule, now);
       // since some task has just runned, let's give a chance to a scheduler to go with another threads before we continue with next one
