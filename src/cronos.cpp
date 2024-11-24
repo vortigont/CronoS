@@ -146,9 +146,15 @@ int CronoS::getCrontab(cronos_tid id, char *buffer, int buffer_len, int expr_len
 }
 
 void CronoS::setExpr(cronos_tid id, const char *expr){
+  std::lock_guard<std::mutex> lock(_mtx);
   for (auto &t : _tasks ){
     if (t->getID() == id){
       t->setExpr(expr);
+      if (t->valid){
+        std::time_t now;
+        std::time(&now);
+        t->next_run = cron_next(&(t->rule), now);
+      }
       return;
     }
   }
