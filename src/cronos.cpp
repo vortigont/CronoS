@@ -13,7 +13,7 @@ GitHub: https://github.com/vortigont/pzem-edl
 #include <ctime>
 //#include "Arduino.h"
 
-#define DEFAULT_RESCHEDULING_TIME   60    // seconds
+#define DEFAULT_RESCHEDULING_TIME   1000  // millseconds
 #define CRONOS_TASK_MAX_LATE_TIME   3     // seconds, when evaluating tasks, consider this value as max late threshold for task to run
                                           // if current time differentce with tasks next_run time is larger than that, skip task's run as too late
                                           // this value is threshold for situations like time skew adjustment or too long scheduler run for some reason
@@ -95,7 +95,6 @@ void CronoS::_evaluate(){
 
   std::time_t now;    // by default reevaluate tasks at least once in a minute
   std::time(&now);
-  std::time_t earliest(now + DEFAULT_RESCHEDULING_TIME);
 
   std::lock_guard<std::mutex> lock(_mtx);
   for (auto i = _tasks.begin(); i != _tasks.end(); ++i){
@@ -104,6 +103,7 @@ void CronoS::_evaluate(){
       continue;
     }
 
+    // execute on-time tasks and tasks that are late for no more then CRONOS_TASK_MAX_LATE_TIME sec
     if (now == (*i)->next_run || (now > (*i)->next_run && now - (*i)->next_run <= CRONOS_TASK_MAX_LATE_TIME) ){
       (*i)->cronos_run();
       (*i)->next_run = cron_next(&(*i)->rule, now);
@@ -112,18 +112,20 @@ void CronoS::_evaluate(){
       xTimerChangePeriod(_tmr, 1, portMAX_DELAY);
       xTimerReset( _tmr, portMAX_DELAY );
       return;
+    } else {
+      // recalculate next time
+      // it is an overkill to do this each time, but it's the only proof way to handle any sporadic large time adjustments back and forth
+      (*i)->next_run = cron_next(&(*i)->rule, now);
+      //Serial.printf("Next event in %u sec\n", (*i)->next_run - now);
+      //ESP_LOGV(tag,"Next event in %u sec\n", (*i)->next_run - now);
     }
 
-    earliest = std::min(earliest, (*i)->next_run);
-    //ESP_LOGV(tag,"Next event in %u sec\n", (*i)->next_run - now);
   }
 
-  uint32_t awake = 1000 * (earliest - now);
-
   //ESP_LOGI(tag, "Sleep for: %u\n", awake);
-  //Serial.printf("Sleep for: %u\n", awake);
+  //Serial.printf("Sleep for: %u\n", earliest);
 
-  xTimerChangePeriod(_tmr, pdMS_TO_TICKS(awake), portMAX_DELAY);
+  xTimerChangePeriod(_tmr, pdMS_TO_TICKS(DEFAULT_RESCHEDULING_TIME), portMAX_DELAY);
   xTimerReset( _tmr, portMAX_DELAY );
 }
 
@@ -161,4 +163,15 @@ void CronoS::setExpr(cronos_tid id, const char *expr){
       return;
     }
   }
+}
+
+void CronoS::reload(){
+  std::lock_guard<std::mutex> lock(_mtx);
+  std::time_t now;
+  std::time(&now);
+  for (auto i = _tasks.begin(); i != _tasks.end(); ++i){
+    if ( (*i)->valid )
+      (*i)->next_run = cron_next(&(*i)->rule, now);
+  }
+  start();
 }

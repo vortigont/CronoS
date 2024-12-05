@@ -111,10 +111,10 @@ public:
   /**
    * @brief starts the scheduler and reevaluate all loaded rules
    * this method MUST be called in case of significant system date/time changes
-   * to reevaluate loaded rules
+   * to reevaluate loaded rules immidiately
    * 
    */
-  void reload(){ start(); };
+  void reload();
 
   /**
    * @brief clears all loaded tasks
